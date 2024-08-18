@@ -48,15 +48,16 @@ end
 
 local function loadGameScript(link)
     local success, scriptOrError = pcall(function()
-        local scriptText = game:HttpGet(link)
-        if not scriptText then
-            error("Failed to download script from: " .. link)
-        end
-        local script = loadstring(scriptText)
-        if type(script) == "function" then
-            return script
+        local response = game:HttpGet(link, true) -- true to get detailed error information
+        if response.Success then
+            local script = loadstring(response.Body)
+            if type(script) == "function" then
+                return script
+            else
+                error("Script at " .. link .. " is not a valid Lua function")
+            end
         else
-            error("Script at " .. link .. " is not a valid Lua function")
+            error("Failed to download script from: " .. link .. " - HTTP Error Code: " .. tostring(response.StatusCode) .. " Reason: " .. tostring(response.StatusMessage))
         end
     end)
     if success then
@@ -69,8 +70,8 @@ end
 
 local place_id = game.PlaceId
 
-if GAME_SCRIPTS[place_id] then
-    local supported, scriptOrError = loadGameScript(GAME_SCRIPTS[place_id])
+if links[GAME_SCRIPTS[place_id]] then
+    local supported, scriptOrError = loadGameScript(links[GAME_SCRIPTS[place_id]])
     if supported then
         local loadFunction = scriptOrError
         if loadFunction and type(loadFunction) == "function" then
@@ -118,6 +119,6 @@ Players.PlayerAdded:Connect(function(player)
                 player:Kick("You have been logged for going against TOS. Further violations will result in a blacklist.")
                 break
             end
-        end
+        end)
     end)
 end)
