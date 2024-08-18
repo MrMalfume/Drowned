@@ -2,7 +2,7 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
 
--- Define links in a structured table
+-- Configurable links for different game scripts
 local links = {
     BladeBall = "https://raw.githubusercontent.com/malfume/Drowned/main/BladeBall.lua",
     AdventurePiece = "https://raw.githubusercontent.com/MrMalfume/Drowned/main/AdventurePiece.lua",
@@ -44,31 +44,24 @@ local GAME_SCRIPTS = {
     [14069866342] = links.LasNoches,
     [14069956183] = links.RukonDistrict,
     [5094651510] = links.Demonfall,
-    [4855457388] = links.Demonfall,
-    [15728281327] = links.ShinobiLineage,
-    [11424731604] = links.Gpo,
-    [648454481] = links.Gpo,
+    [4855457388] = links.ShinobiLineage,
+    [15728281327] = links.Gpo,
+    [11424731604] = links.Xl,
     [1458767429] = links.Aba,
     [14839995292] = links.Clover,
-    [14982280667] = links.Clover,
-    [17639412521] = links.Xl,
-    [17625359962] = links.Rival,
-    [18337464872] = links.Weakleg,
+    [14982280667] = links.Rival, 
+    [18337464872] = links.Weakleg, 
 }
-
--- Function to trim strings from whitespace
-local function trim(s)
-    return s:match("^%s*(.-)%s*$")
-end
 
 -- Function to check if the user is blacklisted
 local function checkBlacklist()
     local hwid = RbxAnalyticsService:GetClientId()
-    local response = HttpService:GetAsync("https://pastebin.com/raw/QKActydZ")
+    local response = game:HttpGet("https://pastebin.com/raw/QKActydZ", true)
     local hwids = string.split(response, "\n")
 
     for _, id in ipairs(hwids) do
-        if hwid == trim(id) then
+        id = id:match("^%s*(.-)%s*$") -- Trim whitespace
+        if hwid == id then
             Players.LocalPlayer:Kick("You are blacklisted. HWID: " .. hwid)
             return true
         end
@@ -79,71 +72,53 @@ end
 -- Function to load a game script from a URL
 local function loadGameScript(link)
     local success, scriptOrError = pcall(function()
-        local script = loadstring(HttpService:GetAsync(link))
-        assert(type(script) == "function", "Script at " .. link .. " is not a function")
-        return script
+        local script = loadstring(game:HttpGet(link, true))
+        if type(script) == "function" then
+            return script
+        else
+            error("Script at " .. link .. " is not a function")
+        end
     end)
-
     if not success then
         warn("Failed to load game script:", scriptOrError)
     end
     return success, scriptOrError
 end
 
--- Function to handle player messages and check for banned words
-local bannedWords = {
-    "clipped", "hacker", "cheating", -- Add more banned words here
-}
-
-local function handlePlayerMessage(player, msg)
-    for _, word in ipairs(bannedWords) do
-        if msg:lower():find(word) then
-            -- Replace the following with your function to log or handle banned words
-            print("Banned word detected:", word, "from player", player.Name)
-            player:Kick("You have been logged for going against TOS.")
-            break
-        end
-    end
-end
-
--- Setup player event connections
-local function initPlayerConnections(player)
-    player.Chatted:Connect(function(msg)
-        handlePlayerMessage(player, msg)
-    end)
-end
-
--- Main execution block
+-- Check blacklist before executing further
 if not checkBlacklist() then
-    Players.PlayerAdded:Connect(initPlayerConnections)
-    for _, player in ipairs(Players:GetPlayers()) do
-        initPlayerConnections(player)
-    end
-end
-
--- Handle game script based on the current game ID
-local place_id = game.PlaceId
-if GAME_SCRIPTS[place_id] then
-    local supported, scriptOrError = loadGameScript(GAME_SCRIPTS[place_id])
-    if supported then
-        local success, result = pcall(scriptOrError)
-        if not success then
-            warn("Error running the game script:", result)
+    local place_id = game.PlaceId
+    if GAME_SCRIPTS[place_id] then
+        local supported, scriptOrError = loadGameScript(GAME_SCRIPTS[place_id])
+        if supported then
+            local loadFunction = scriptOrError
+            if loadFunction and type(loadFunction) == "function" then
+                local success, result = pcall(loadFunction)
+                if not success then
+                    warn("Error running the script function:", result)
+                end
+            else
+                warn("Game script loaded but contains no valid function.")
+            end
+        else
+            warn("Game script loading failed.")
         end
     else
-        warn("Game script loading failed.")
-    end
-else
-    print("Game ID is not supported:", place_id)
-    print("Loading default script.")
-    -- Assume there is a default script in the links table
-    local defaultSupported, defaultScriptOrError = loadGameScript(links.Default)
-    if defaultSupported then
-        local success, result = pcall(defaultScriptOrError)
-        if not success then
-            warn("Error running the default script:", result)
+        warn("Game ID is not supported:", place_id)
+        -- Fallback to a default script if the game ID is not supported
+        local supported, scriptOrError = loadGameScript(links.Default)
+        if supported then
+            local loadFunction = scriptOrError
+            if loadFunction and type(loadFunction) == "function" then
+                local success, result = pcall(loadFunction)
+                if not success then
+                    warn("Error running the default script function:", result)
+                end
+            else
+                warn("Default script loaded but contains no valid function.")
+            end
+        else
+            warn("Default script loading failed.")
         end
-    else
-        warn("Default script loading failed.")
     end
 end
