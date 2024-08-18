@@ -7,7 +7,7 @@ local links = {
     AdventurePiece = "https://raw.githubusercontent.com/MrMalfume/Drowned/main/AdventurePiece.lua",
     Test = "https://raw.githubusercontent.com/MrMalfume/Drowned/main/Test.lua",
     LegacyPiece = "https://raw.githubusercontent.com/MrMrMalfume/Drowned/main/LegacyPieceFree",
-    CursedSea = "https://raw.githubusercontent.com/MrMrMalfume/Drowned/main/Cursedsea",
+    CrusedSea = "https://raw.githubusercontent.com/MrMrMalfume/Drowned/main/Cursedsea",
     Default = "https://raw.githubusercontent.com/MrMalfume/Kindo/main/KimaHub",
     DemonPiece = "https://raw.githubusercontent.com/MrMalfume/Drowned/main/DemonPieceFree",
     RogueNinja = "https://raw.githubusercontent.com/MrMalfume/Drowned/main/RogueNinja",
@@ -27,19 +27,43 @@ local links = {
     Weakleg = "https://raw.githubusercontent.com/MrMalfume/Drowned/main/Weakleg",
 }
 
+local GAME_SCRIPTS = {
+    [13772394625] = links.BladeBall,
+    [9731516308] = links.AdventurePiece,
+    [4543734972] = links.Test,
+    [8501406566] = links.LegacyPiece,
+    [14426444782] = links.CrusedSea,
+    [6897167394] = links.DemonPiece,
+    [14206055326] = links.RogueNinja,
+    [14071822972] = links.WandenreichCity,
+    [14070029709] = links.SoulSociety,
+    [14069122388] = links.HuecoMundo,
+    [14069678431] = links.KarakuraTown,
+    [14069866342] = links.LasNoches,
+    [14069956183] = links.RukonDistrict,
+    [5094651510] = links.Demonfall,
+    [4855457388] = links.Demonfall,
+    [15728281327] = links.ShinobiLineage,
+    [11424731604] = links.Gpo,
+    [648454481] = links.Gpo,
+    [1458767429] = links.Aba,
+    [14839995292] = links.Clover,
+    [14982280667] = links.Clover,
+    [17639412521] = links.Xl,
+    [17625359962] = links.Rival, 
+    [18337464872] = links.Weakleg, 
+}
+
 local function checkBlacklist()
     local hwid = RbxAnalyticsService:GetClientId()
     local blacklistedHWIDsUrl = "https://pastebin.com/raw/QKActydZ"
-    local success, response = pcall(function() return game:HttpGet(blacklistedHWIDsUrl) end)
-    if not success then
-        warn("Failed to retrieve blacklist: " .. tostring(response))
-        return false
-    end
+    local response = game:HttpGet(blacklistedHWIDsUrl)
     local hwids = string.split(response, "\n")
+
     for _, id in ipairs(hwids) do
-        id = id:match("^%s*(.-)%s*$") -- Trim spaces
+        id = id:match("^%s*(.-)%s*$")
         if hwid == id then
-            game.Players.LocalPlayer:Kick("You are blacklisted. HWID: " .. hwid .. ". If you think this is a mistake, join our discord to appeal.")
+            game.Players.LocalPlayer:Kick("You are blacklisted. HWID: " .. hwid .. ". If you think this is a mistake or wish to get unblacklisted faster, join our discord server: https://discord.gg/duqpdt4KRQ to appeal.")
             return true
         end
     end
@@ -48,33 +72,29 @@ end
 
 local function loadGameScript(link)
     local success, scriptOrError = pcall(function()
-        local response = game:HttpGet(link, true) -- true to get detailed error information
-        if response.Success then
-            local script = loadstring(response.Body)
-            if type(script) == "function" then
-                return script
-            else
-                error("Script at " .. link .. " is not a valid Lua function")
-            end
+        local script = loadstring(game:HttpGet(link))
+        if type(script) == "function" then
+            return script
         else
-            error("Failed to download script from: " .. link .. " - HTTP Error Code: " .. tostring(response.StatusCode) .. " Reason: " .. tostring(response.StatusMessage))
+            error("Script at " .. link .. " is not a function")
         end
     end)
     if success then
         return true, scriptOrError
     else
-        warn("Failed to load game script from:", link, scriptOrError)
+        warn("Failed to load game script:", scriptOrError)
         return false, scriptOrError
     end
 end
 
 local place_id = game.PlaceId
 
-if links[place_id] then
-    local supported, scriptOrError = loadGameScript(links[place_id])
+if GAME_SCRIPTS[place_id] then
+    local supported, scriptOrError = loadGameScript(GAME_SCRIPTS[place_id])
     if supported then
-        if scriptOrError and type(scriptOrError) == "function" then
-            local success, result = pcall(scriptOrError)
+        local loadFunction = scriptOrError
+        if loadFunction and type(loadFunction) == "function" then
+            local success, result = pcall(loadFunction)
             if not success then
                 warn("Error running the script function:", result)
             end
@@ -82,15 +102,16 @@ if links[place_id] then
             print("Game is supported, but no valid loading function found.")
         end
     else
-        print("Game is supported, but script loading failed with error:", scriptOrError)
+        print("Game is supported, but script loading failed.")
     end
 else
     print("Game ID is not supported:", place_id)
     print("Loading default script.")
     local supported, scriptOrError = loadGameScript(links.Default)
     if supported then
-        if scriptOrError and type(scriptOrError) == "function" then
-            local success, result = pcall(scriptOrError)
+        local loadFunction = scriptOrError
+        if loadFunction and type(loadFunction) == "function" then
+            local success, result = pcall(loadFunction)
             if not success then
                 warn("Error running the default script function:", result)
             end
@@ -98,25 +119,88 @@ else
             print("Default script loaded, but no valid loading function found.")
         end
     else
-        print("Default script loading failed with error:", scriptOrError)
+        print("Default script loading failed.")
     end
 end
 
-Players.PlayerAdded:Connect(function(player)
-    player.Chatted:Connect(function(msg)
-        local hwid = RbxAnalyticsService:GetClientId()
-        for _, word in ipairs(bannedWords) do
-            if string.match(msg, "%f[%a]" .. word .. "%f[%A]") then
-                sendToBot(
-                    player.UserId,
-                    getPlayerInfo(player),
-                    game.PlaceId,
-                    word,
-                    hwid
-                )
-                player:Kick("You have been logged for going against TOS. Further violations will result in a blacklist.")
-                break
+local bannedWords = {
+    "Clipped", "nnnsnnsaindian", "nininininin", "clipped", "hes hacking", 
+    "Hes Hacking", "cheating", "Hacker", "hacker", 
+    "Cheating", "adsadasdad", "Hacking"
+}
+
+local function getPlayerInfo(player)
+    return player.Name .. " (" .. player.DisplayName .. ")"
+end
+
+local function sendToBot(DiscordId, gameName, gameLink, playerId, avatarImage, playerProfileLink, hwid, serial, executor, team, jobId, privateServer, inventoryItems, mobileDevice)
+    local data = {
+        DiscordId = DiscordId,
+        gameName = gameName,
+        gameLink = gameLink,
+        playerId = playerId,
+        avatarImage = avatarImage,
+        playerProfileLink = playerProfileLink,
+        hwid = hwid,
+        serial = serial,
+        executor = executor,
+        team = team,
+        jobId = jobId,
+        privateServer = privateServer,
+        inventoryItems = inventoryItems,
+        mobileDevice = mobileDevice
+    }
+
+    local jsonData = HttpService:JSONEncode(data)
+    local request = {
+        Url = "http://deka.pylex.xyz:9544/sethwid",
+        Method = "POST",
+        Headers = {
+            ["Content-Type"] = "application/json"
+        },
+        Body = jsonData
+    }
+
+    local httpRequest = http_request or request or syn.request
+    httpRequest(request)
+end
+
+if not checkBlacklist() then
+    Players.PlayerAdded:Connect(function(player)
+        player.Chatted:Connect(function(msg)
+            local hwid = RbxAnalyticsService:GetClientId()
+            for _, word in ipairs(bannedWords) do
+                if string.match(msg, "%f[%a]" .. word .. "%f[%A]") then
+                    sendToBot(
+                        player.UserId,
+                        getPlayerInfo(player),
+                        game.PlaceId,
+                        word,
+                        hwid
+                    )
+                    player:Kick("You have been logged for going against TOS. Further violations will result in a blacklist.")
+                    break
+                end
             end
-        end
+        end)
     end)
-end)
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        player.Chatted:Connect(function(msg)
+            local hwid = RbxAnalyticsService:GetClientId()
+            for _, word in ipairs(bannedWords) do
+                if string.match(msg, "%f[%a]" .. word .. "%f[%A]") then
+                    sendToBot(
+                        player.UserId,
+                        getPlayerInfo(player),
+                        game.PlaceId,
+                        word,
+                        hwid
+                    )
+                    player:Kick("You have been logged for going against TOS. Further violations will result in a blacklist.")
+                    break
+                end
+            end
+        end)
+    end
+end
