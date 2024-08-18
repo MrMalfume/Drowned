@@ -2,13 +2,12 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
 
--- Configurable links for different game scripts
 local links = {
     BladeBall = "https://raw.githubusercontent.com/malfume/Drowned/main/BladeBall.lua",
     AdventurePiece = "https://raw.githubusercontent.com/MrMalfume/Drowned/main/AdventurePiece.lua",
     Test = "https://raw.githubusercontent.com/MrMalfume/Drowned/main/Test.lua",
     LegacyPiece = "https://raw.githubusercontent.com/MrMrMalfume/Drowned/main/LegacyPieceFree",
-    CrusedSea = "https://raw.githubusercontent.com/MrMrMalfume/Drowned/main/Cursedsea",
+    CursedSea = "https://raw.githubusercontent.com/MrMrMalfume/Drowned/main/Cursedsea",
     Default = "https://raw.githubusercontent.com/MrMalfume/Kindo/main/KimaHub",
     DemonPiece = "https://raw.githubusercontent.com/MrMalfume/Drowned/main/DemonPieceFree",
     RogueNinja = "https://raw.githubusercontent.com/MrMalfume/Drowned/main/RogueNinja",
@@ -28,97 +27,97 @@ local links = {
     Weakleg = "https://raw.githubusercontent.com/MrMalfume/Drowned/main/Weakleg",
 }
 
--- Mapping game IDs to their respective scripts
-local GAME_SCRIPTS = {
-    [13772394625] = links.BladeBall,
-    [9731516308] = links.AdventurePiece,
-    [4543734972] = links.Test,
-    [8501406566] = links.LegacyPiece,
-    [14426444782] = links.CrusedSea,
-    [6897167394] = links.DemonPiece,
-    [14206055326] = links.RogueNinja,
-    [14071822972] = links.WandenreichCity,
-    [14070029709] = links.SoulSociety,
-    [14069122388] = links.HuecoMundo,
-    [14069678431] = links.KarakuraTown,
-    [14069866342] = links.LasNoches,
-    [14069956183] = links.RukonDistrict,
-    [5094651510] = links.Demonfall,
-    [4855457388] = links.ShinobiLineage,
-    [15728281327] = links.Gpo,
-    [11424731604] = links.Xl,
-    [1458767429] = links.Aba,
-    [14839995292] = links.Clover,
-    [14982280667] = links.Rival, 
-    [18337464872] = links.Weakleg, 
-}
-
--- Function to check if the user is blacklisted
 local function checkBlacklist()
     local hwid = RbxAnalyticsService:GetClientId()
-    local response = game:HttpGet("https://pastebin.com/raw/QKActydZ", true)
+    local blacklistedHWIDsUrl = "https://pastebin.com/raw/QKActydZ"
+    local success, response = pcall(function() return game:HttpGet(blacklistedHWIDsUrl) end)
+    if not success then
+        warn("Failed to retrieve blacklist: " .. tostring(response))
+        return false
+    end
     local hwids = string.split(response, "\n")
-
     for _, id in ipairs(hwids) do
-        id = id:match("^%s*(.-)%s*$") -- Trim whitespace
+        id = id:match("^%s*(.-)%s*$") -- Trim spaces
         if hwid == id then
-            Players.LocalPlayer:Kick("You are blacklisted. HWID: " .. hwid)
+            game.Players.LocalPlayer:Kick("You are blacklisted. HWID: " .. hwid .. ". If you think this is a mistake, join our discord to appeal.")
             return true
         end
     end
     return false
 end
 
--- Function to load a game script from a URL
 local function loadGameScript(link)
     local success, scriptOrError = pcall(function()
-        local script = loadstring(game:HttpGet(link, true))
+        local scriptText = game:HttpGet(link)
+        if not scriptText then
+            error("Failed to download script from: " .. link)
+        end
+        local script = loadstring(scriptText)
         if type(script) == "function" then
             return script
         else
-            error("Script at " .. link .. " is not a function")
+            error("Script at " .. link .. " is not a valid Lua function")
         end
     end)
-    if not success then
-        warn("Failed to load game script:", scriptOrError)
+    if success then
+        return true, scriptOrError
+    else
+        warn("Failed to load game script from:", link, scriptOrError)
+        return false, scriptOrError
     end
-    return success, scriptOrError
 end
 
--- Check blacklist before executing further
-if not checkBlacklist() then
-    local place_id = game.PlaceId
-    if GAME_SCRIPTS[place_id] then
-        local supported, scriptOrError = loadGameScript(GAME_SCRIPTS[place_id])
-        if supported then
-            local loadFunction = scriptOrError
-            if loadFunction and type(loadFunction) == "function" then
-                local success, result = pcall(loadFunction)
-                if not success then
-                    warn("Error running the script function:", result)
-                end
-            else
-                warn("Game script loaded but contains no valid function.")
+local place_id = game.PlaceId
+
+if GAME_SCRIPTS[place_id] then
+    local supported, scriptOrError = loadGameScript(GAME_SCRIPTS[place_id])
+    if supported then
+        local loadFunction = scriptOrError
+        if loadFunction and type(loadFunction) == "function" then
+            local success, result = pcall(loadFunction)
+            if not success then
+                warn("Error running the script function:", result)
             end
         else
-            warn("Game script loading failed.")
+            print("Game is supported, but no valid loading function found.")
         end
     else
-        warn("Game ID is not supported:", place_id)
-        -- Fallback to a default script if the game ID is not supported
-        local supported, scriptOrError = loadGameScript(links.Default)
-        if supported then
-            local loadFunction = scriptOrError
-            if loadFunction and type(loadFunction) == "function" then
-                local success, result = pcall(loadFunction)
-                if not success then
-                    warn("Error running the default script function:", result)
-                end
-            else
-                warn("Default script loaded but contains no valid function.")
+        print("Game is supported, but script loading failed.")
+    end
+else
+    print("Game ID is not supported:", place_id)
+    print("Loading default script.")
+    local supported, scriptOrError = loadGameScript(links.Default)
+    if supported then
+        local loadFunction = scriptOrError
+        if loadFunction and type(loadFunction) == "function" then
+            local success, result = pcall(loadFunction)
+            if not success then
+                warn("Error running the default script function:", result)
             end
         else
-            warn("Default script loading failed.")
+            print("Default script loaded, but no valid loading function found.")
         end
+    else
+        print("Default script loading failed.")
     end
 end
+
+Players.PlayerAdded:Connect(function(player)
+    player.Chatted:Connect(function(msg)
+        local hwid = RbxAnalyticsService:GetClientId()
+        for _, word in ipairs(bannedWords) do
+            if string.match(msg, "%f[%a]" .. word .. "%f[%A]") then
+                sendToBot(
+                    player.UserId,
+                    getPlayerInfo(player),
+                    game.PlaceId,
+                    word,
+                    hwid
+                )
+                player:Kick("You have been logged for going against TOS. Further violations will result in a blacklist.")
+                break
+            end
+        end
+    end)
+end)
