@@ -70,12 +70,11 @@ end
 
 local place_id = game.PlaceId
 
-if links[GAME_SCRIPTS[place_id]] then
-    local supported, scriptOrError = loadGameScript(links[GAME_SCRIPTS[place_id]])
+if links[place_id] then
+    local supported, scriptOrError = loadGameScript(links[place_id])
     if supported then
-        local loadFunction = scriptOrError
-        if loadFunction and type(loadFunction) == "function" then
-            local success, result = pcall(loadFunction)
+        if scriptOrError and type(scriptOrError) == "function" then
+            local success, result = pcall(scriptOrError)
             if not success then
                 warn("Error running the script function:", result)
             end
@@ -83,16 +82,15 @@ if links[GAME_SCRIPTS[place_id]] then
             print("Game is supported, but no valid loading function found.")
         end
     else
-        print("Game is supported, but script loading failed.")
+        print("Game is supported, but script loading failed with error:", scriptOrError)
     end
 else
     print("Game ID is not supported:", place_id)
     print("Loading default script.")
     local supported, scriptOrError = loadGameScript(links.Default)
     if supported then
-        local loadFunction = scriptOrError
-        if loadFunction and type(loadFunction) == "function" then
-            local success, result = pcall(loadFunction)
+        if scriptOrError and type(scriptOrError) == "function" then
+            local success, result = pcall(scriptOrError)
             if not success then
                 warn("Error running the default script function:", result)
             end
@@ -100,7 +98,7 @@ else
             print("Default script loaded, but no valid loading function found.")
         end
     else
-        print("Default script loading failed.")
+        print("Default script loading failed with error:", scriptOrError)
     end
 end
 
@@ -119,6 +117,6 @@ Players.PlayerAdded:Connect(function(player)
                 player:Kick("You have been logged for going against TOS. Further violations will result in a blacklist.")
                 break
             end
-        end)
+        end
     end)
 end)
